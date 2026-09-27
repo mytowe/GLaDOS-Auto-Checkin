@@ -26,14 +26,14 @@ logging.basicConfig(
 logger = logging.getLogger("GLaDOS")
 
 # ==================== 配置 ====================
-CHECKIN_URL = "https://glados.rocks/api/user/checkin"
-STATUS_URL = "https://glados.rocks/api/user/status"
-POINTS_URL = "https://glados.rocks/api/user/points"
-EXCHANGE_URL = "https://glados.rocks/api/user/exchange"
+CHECKIN_URL = "https://glados.cloud/api/user/checkin"
+STATUS_URL = "https://glados.cloud/api/user/status"
+POINTS_URL = "https://glados.cloud/api/user/points"
+EXCHANGE_URL = "https://glados.cloud/api/user/exchange"
 
 HEADERS_BASE = {
-    "origin": "https://glados.rocks",
-    "referer": "https://glados.rocks/console/checkin",
+    "origin": "https://glados.cloud",
+    "referer": "https://glados.cloud/console/checkin",
     "user-agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
