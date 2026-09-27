@@ -1,26 +1,26 @@
-"""
+"" "" ""
 GLaDOS 自动签到脚本
 支持多账号、多种推送渠道、重试机制、日志脱敏
-"""
-import os
-import re
-import sys
-import json
-import time
-import random
-import hashlib
-import hmac
-import base64
-import urllib.parse
-import logging
-from typing import List, Dict, Any, Tuple, Optional, Callable
-from functools import wraps
-import requests
+"" "" ""
+导入 os
+导入 re
+导入 sys
+导入 json
+导入 time
+导入 随机
+导入 hashlib
+导入 hmac
+导入 base64
+导入 urllib.parse
+导入日志
+从 typing 导入 List, Dict, Any, Tuple, Optional, Callable
+从 functools 导入 wraps
+导入 requests
 
 # ==================== 日志配置 ====================
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
+日志记录。basicConfig(
+    级别=logging.INFO,
+    格式="%(asctime)s | %(levelname)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("GLaDOS")
@@ -34,19 +34,19 @@ HEADERS_BASE = {{
     "origin": "https://glados.cloud","origin": "https://glados.cloud",
     "referer": "https://glados.cloud/console/checkin","referer": "https://glados.cloud/console/checkin",
     "user-agent": ("user-agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "AppleWebKit/537.36 (KHTML, like Gecko)"
         "Chrome/154.0.0.0 Safari/537.36"
     ),
     # 注意：使用 requests 的 json= 参数时会自动设置 Content-Type: application/json，
     # 此处无需（也不应）手动设置 content-type，否则与 requests 默认行为重复。
 }
 PAYLOAD = {"token": "glados.cloud"}
-TIMEOUT = (5, 15)  # (连接超时, 读取超时)
+超时 = (5, 15)  # (连接超时, 读取超时)
 MAX_RETRY = 3
 RETRY_MIN_WAIT = 2.0
 RETRY_MAX_WAIT = 10.0
-MIN_DELAY = 1.0
+最小延迟 = 1.0
 MAX_DELAY = 2.0
 TELEGRAM_MAX_LENGTH = 4000
 TELEGRAM_TRUNCATE_LENGTH = 3990
