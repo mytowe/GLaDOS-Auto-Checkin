@@ -1,52 +1,53 @@
-"" "" ""
+"""
 GLaDOS 自动签到脚本
 支持多账号、多种推送渠道、重试机制、日志脱敏
-"" "" ""
-导入 os
-导入 re
-导入 sys
-导入 json
-导入 time
-导入 随机
-导入 hashlib
-导入 hmac
-导入 base64
-导入 urllib.parse
-导入日志
-从 typing 导入 List, Dict, Any, Tuple, Optional, Callable
-从 functools 导入 wraps
-导入 requests
+"""
+import os
+import re
+import sys
+import json
+import time
+import random
+import hashlib
+import hmac
+import base64
+import urllib.parse
+import logging
+from typing import List, Dict, Any, Tuple, Optional, Callable
+from functools import wraps
+import requests
 
 # ==================== 日志配置 ====================
-日志记录。basicConfig(
-    级别=logging.INFO,
-    格式="%(asctime)s | %(levelname)s | %(message)s",
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("GLaDOS")
 
 # ==================== 配置 ====================
-CHECKIN_URL = "https://glados.cloud/api/user/checkin""https://glados.cloud/api/user/checkin"
-STATUS_URL = "https://glados.cloud/api/user/status""https://glados.cloud/api/user/status"
-POINTS_URL = "https://glados.cloud/api/user/points""https://glados.cloud/api/user/points"
-EXCHANGE_URL = "https://glados.cloud/api/user/exchange""https://glados.cloud/api/user/exchange"
-HEADERS_BASE = {{
-    "origin": "https://glados.cloud","origin": "https://glados.cloud",
-    "referer": "https://glados.cloud/console/checkin","referer": "https://glados.cloud/console/checkin",
-    "user-agent": ("user-agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        "AppleWebKit/537.36 (KHTML, like Gecko)"
-        "Chrome/154.0.0.0 Safari/537.36"
+CHECKIN_URL = "https://glados.rocks/api/user/checkin"
+STATUS_URL = "https://glados.rocks/api/user/status"
+POINTS_URL = "https://glados.rocks/api/user/points"
+EXCHANGE_URL = "https://glados.rocks/api/user/exchange"
+
+HEADERS_BASE = {
+    "origin": "https://glados.rocks",
+    "referer": "https://glados.rocks/console/checkin",
+    "user-agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
     ),
     # 注意：使用 requests 的 json= 参数时会自动设置 Content-Type: application/json，
     # 此处无需（也不应）手动设置 content-type，否则与 requests 默认行为重复。
 }
-PAYLOAD = {"token": "glados.cloud"}
-超时 = (5, 15)  # (连接超时, 读取超时)
+PAYLOAD = {"token": "glados.network"}
+TIMEOUT = (5, 15)  # (连接超时, 读取超时)
 MAX_RETRY = 3
 RETRY_MIN_WAIT = 2.0
 RETRY_MAX_WAIT = 10.0
-最小延迟 = 1.0
+MIN_DELAY = 1.0
 MAX_DELAY = 2.0
 TELEGRAM_MAX_LENGTH = 4000
 TELEGRAM_TRUNCATE_LENGTH = 3990
@@ -65,7 +66,6 @@ EXCHANGE_PLANS = {
     "plan500": {"points": 500, "days": 100},
 }
 
-
 # ==================== 工具函数 ====================
 def safe_json(resp: requests.Response) -> Dict[str, Any]:
     """安全解析 JSON 响应（用于推送等非关键路径，失败返回空字典）。"""
@@ -78,7 +78,6 @@ def safe_json(resp: requests.Response) -> Dict[str, Any]:
 def require_json(resp: requests.Response) -> Dict[str, Any]:
     """
     严格解析 JSON 响应（用于签到/状态/积分等核心请求路径）。
-
     - 若响应体不是合法 JSON（如网关 502 的 HTML 错误页、空响应），抛出
       requests.exceptions.RequestException，使调用方 @retry_on_failure 能捕获并重试（M1）。
     - 同时记录原始响应片段（debug），便于排查真实失败原因。
@@ -87,7 +86,7 @@ def require_json(resp: requests.Response) -> Dict[str, Any]:
         return resp.json()
     except ValueError:
         snippet = (resp.text or "<空响应>")[:200]
-GLaDOS 自动签到脚本debug(
+        logger.debug(
             "非 JSON 响应 (status=%s, content-type=%s): %s",
             resp.status_code,
             resp.headers.get("Content-Type"),
@@ -162,7 +161,6 @@ def _escape_markdown(text: str) -> str:
 def parse_earned_points(message: str) -> int:
     """
     从签到成功响应文本中解析本次获得的积分数（H1）。
-
     GLaDOS 签到接口不返回 points 字段，获得积分数写在 message 中。
     兼容中英文两种文案（与 classify_checkin 的成功判定保持一致）：
       - 英文： "Checkin success, got 1 points"
@@ -190,11 +188,9 @@ def validate_cookie(cookie: str) -> Tuple[bool, str]:
     return True, ""
 
 
-
 def is_retryable(exc: Exception) -> bool:
     """
     判断异常是否可重试（M2）。
-
     - 网络层异常（超时/连接错误/JSON 解析失败等 RequestException，非 HTTPError）：可重试；
     - HTTPError：仅 5xx 服务端错误可重试，4xx 客户端错误（如 Cookie 失效 401/403）不可重试；
     - 其它异常：不可重试。
@@ -351,7 +347,6 @@ def push_dingtalk(webhook_url: str, title: str, content: str) -> bool:
             "DINGTALK_WEBHOOK 已配置，但 DINGTALK_SECRET 缺失："
             "将发送无签名请求（若机器人启用了加签校验会失败）"
         )
-
     return _push_request(
         "钉钉机器人",
         webhook_url,
@@ -379,7 +374,6 @@ def push_feishu(webhook_url: str, title: str, content: str) -> bool:
             "elements": [{"tag": "markdown", "content": _escape_markdown(content)}],
         },
     }
-
     secret = os.getenv("FEISHU_SECRET", "")
     if secret:
         timestamp = str(round(time.time()))
@@ -399,7 +393,6 @@ def push_feishu(webhook_url: str, title: str, content: str) -> bool:
             "FEISHU_WEBHOOK 已配置，但 FEISHU_SECRET 缺失："
             "将发送无签名请求（若机器人启用了加签校验会失败）"
         )
-
     return _push_request(
         "飞书机器人",
         webhook_url,
@@ -476,7 +469,6 @@ PUSH_CHANNELS: List[Tuple[str, List[str], Callable[[str, str], bool]]] = [
 def push_all(title: str, content: str) -> Tuple[int, int]:
     """
     推送到所有已配置的通知渠道。
-
     返回 (成功数, 已配置数)，供主流程区分"业务失败"与"通知发送失败"（L4）。
     """
     results: List[Tuple[str, bool]] = []
@@ -488,7 +480,6 @@ def push_all(title: str, content: str) -> Tuple[int, int]:
                 logger.warning("%s 推送异常: %s", name, e)
                 ok_push = False
             results.append((name, bool(ok_push)))
-
     configured = [n for n, _ in results]
     success = sum(1 for _, ok_push in results if ok_push)
     if not configured:
@@ -540,10 +531,8 @@ def api_get(session: requests.Session, url: str, headers: Dict[str, str]) -> Dic
 def exchange_request(session: requests.Session, headers: Dict[str, str], plan: str) -> Dict[str, Any]:
     """
     执行积分兑换请求（#9 功能请求）。
-
     GLaDOS 兑换接口以表单形式提交 planType（plan100/plan200/plan500），
     响应 JSON 中 code==0 表示兑换成功。
-
     注意：故意不加 @retry_on_failure —— 兑换是消耗积分的非幂等 POST，
     若首次请求服务端已成功但响应丢失（读超时/连接重置），重试会导致重复扣积分。
     失败仅记警告、不影响签到结果与退出码，无需重试兜底。
@@ -560,14 +549,12 @@ def checkin_account(
     exchange_plan: Optional[str] = None,
 ) -> Dict[str, Any]:
     """执行单个账号的签到，返回账号信息字典
-
     exchange_plan: 积分兑换计划名（plan100/plan200/plan500），为 None 时不兑换。
     """
     session.cookies.clear()  # 清除上一个账号的残留 Cookie，避免串扰
     headers = {**HEADERS_BASE}
     session_token = extract_session_token(cookie)
     headers["cookie"] = f"__Secure-next-auth.session-token={session_token}"
-
 
     email = "unknown"
     days = "-"
@@ -577,7 +564,6 @@ def checkin_account(
     status = ""
     result = "fail"
     exchange_status = "-"  # 兑换结果描述（未配置时保持 "-"，不输出到日志）
-
     try:
         # 1. 签到
         j = checkin_request(session, headers)
@@ -586,14 +572,12 @@ def checkin_account(
         # H1：GLaDOS 不返回 points 字段，从 message 文本解析本次获得积分
         earned = parse_earned_points(message)
         result = classify_checkin(code, message)
-
         if result == "ok":
             status = f"✅ 成功 (+{earned}积分)"
         elif result == "repeat":
             status = "🔄 已签到"
         else:
             status = f"❌ 失败({message})"
-
         # 2. 查询账号状态（剩余天数、邮箱）
         try:
             s = api_get(session, STATUS_URL, headers)
@@ -603,7 +587,6 @@ def checkin_account(
                 days = f"{safe_int_str(data['leftDays'])} 天"
         except Exception as e:  # noqa: BLE001
             logger.warning("账号 %d 状态查询失败: %s", index, e)
-
         # 3. 查询总积分（兼容顶层 points 与 data.points 两种返回结构，#1）
         try:
             p = api_get(session, POINTS_URL, headers)
@@ -622,7 +605,6 @@ def checkin_account(
             logger.warning("账号 %d 积分查询失败 (HTTP %s)", index, status_code)
         except Exception as e:  # noqa: BLE001
             logger.warning("账号 %d 积分查询失败: %s", index, e)
-
         # 4. 积分兑换（#9，仅配置了 EXCHANGE_PLAN 时执行；默认关闭不影响现有功能）
         #    兑换独立于签到结果，但仅在成功查到积分后尝试；失败不影响签到状态/退出码。
         if exchange_plan and exchange_plan in EXCHANGE_PLANS:
@@ -651,12 +633,10 @@ def checkin_account(
                 except Exception as e:  # noqa: BLE001
                     exchange_status = f"⚠️ 兑换异常({type(e).__name__})"
                     logger.warning("账号 %d 积分兑换异常: %s", index, e)
-
     except Exception as e:  # noqa: BLE001
         logger.error("账号 %d 签到异常: %s", index, e)
         status = f"❌ 异常({type(e).__name__})"
         result = "fail"
-
     return {
         "index": index,
         "email": mask_email(email),
@@ -675,6 +655,7 @@ def main() -> int:
     if custom_ua:
         HEADERS_BASE["user-agent"] = custom_ua
         logger.info("已使用自定义GLADOS_USER_AGENT")
+
     # H2：支持 ||| 或换行(\n)或 & 分隔多账号 Cookie；推荐使用 ||| 避免与 Cookie 值冲突
     raw = os.getenv("COOKIES", "")
     cookies = [c.strip() for c in re.split(r"\|\|\||[&\n]", raw) if c.strip()]
@@ -703,10 +684,8 @@ def main() -> int:
         return 1  # L4：配置缺失视为失败，避免 CI 误标绿
 
     logger.info("检测到 %d 个账号", len(cookies))
-
     ok = fail = repeat = 0
     lines = []
-
     with requests.Session() as session:  # H1：使用上下文管理器确保连接释放
         for idx, cookie in enumerate(cookies, 1):
             # 验证 Cookie 格式，无效则跳过
@@ -719,17 +698,14 @@ def main() -> int:
                 if idx < len(cookies):
                     time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
                 continue
-
             logger.info("正在处理账号 %d/%d...", idx, len(cookies))
             acc = checkin_account(session, cookie, idx, exchange_plan)
-
             if acc["result"] == "ok":
                 ok += 1
             elif acc["result"] == "repeat":
                 repeat += 1
             else:
                 fail += 1
-
             line = (
                 f"{acc['index']}. {acc['email']} | {acc['status']} | "
                 f"总积分:{acc['total_points']} | 剩余:{acc['remaining_days']}"
@@ -738,14 +714,12 @@ def main() -> int:
             if acc.get("exchange") and acc["exchange"] != "-":
                 line += f" | 兑换:{acc['exchange']}"
             lines.append(line)
-
             # 非最后一个账号时随机延迟
             if idx < len(cookies):
                 time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
 
     title = f"GLaDOS 签到完成 ✅{ok} ❌{fail} 🔄{repeat}"
     content = "\n".join(lines)
-
     # #4：汇总内容过长时统一截断，避免部分推送渠道因超限静默失败
     if len(content) > CONTENT_MAX_LENGTH:
         content = content[:CONTENT_MAX_LENGTH] + "\n…(内容过长已截断)"
@@ -755,7 +729,6 @@ def main() -> int:
     logger.info("%s", "=" * 50)
 
     pushed_success, pushed_configured = push_all(title, content)
-
     # L4：区分"业务失败"与"通知发送失败"，必要时非零退出避免误判成功
     if ok == 0 and repeat == 0 and len(cookies) > 0:
         # 业务全部失败：无论通知是否成功，均判运行失败
