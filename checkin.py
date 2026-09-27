@@ -36,7 +36,7 @@ HEADERS_BASE = {
     "user-agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
+        "Chrome/152.0.0.0 Safari/537.36"
     ),
     # 注意：使用 requests 的 json= 参数时会自动设置 Content-Type: application/json，
     # 此处无需（也不应）手动设置 content-type，否则与 requests 默认行为重复。
@@ -138,6 +138,18 @@ def mask_cookie(cookie: str) -> str:
     return f"{cookie[:COOKIE_MASK_LENGTH]}...{cookie[-COOKIE_MASK_LENGTH:]}"
 
 
+def extract_session_token(raw_cookie: str) -> Optional[str]:
+    """从完整原始Cookie字符串提取新版 __Secure-next-auth.session-token"""
+    cookie_dict = {}
+    for pair in raw_cookie.split(";"):
+        pair = pair.strip()
+        if not pair or "=" not in pair:
+            continue
+        key, val = pair.split("=", 1)
+        cookie_dict[key.strip()] = val.strip()
+    return cookie_dict.get("__Secure-next-auth.session-token")
+
+
 def _escape_markdown(text: str) -> str:
     """转义 Markdown 特殊字符，防止外部文本破坏推送格式（M6）。"""
     if not text:
@@ -169,16 +181,14 @@ def parse_earned_points(message: str) -> int:
 
 
 def validate_cookie(cookie: str) -> Tuple[bool, str]:
-    """验证 Cookie 是否包含必要字段（按 ; 拆分 key 精确校验，避免子串误判）"""
+    """验证新版Cookie，必须包含 __Secure-next-auth.session-token"""
     if not cookie or not cookie.strip():
         return False, "Cookie 为空"
-    cookie = cookie.strip()
-    keys = {part.split("=", 1)[0].strip() for part in cookie.split(";") if part.strip()}
-    if "koa:sess" not in keys:
-        return False, "Cookie 缺少必要字段: koa:sess"
-    if "koa:sess.sig" not in keys:
-        return False, "Cookie 缺少必要字段: koa:sess.sig"
+    token = extract_session_token(cookie)
+    if not token:
+        return False, "Cookie缺少必要字段: __Secure-next-auth.session-token，请重新复制浏览器完整Cookie"
     return True, ""
+
 
 
 def is_retryable(exc: Exception) -> bool:
@@ -555,7 +565,9 @@ def checkin_account(
     """
     session.cookies.clear()  # 清除上一个账号的残留 Cookie，避免串扰
     headers = {**HEADERS_BASE}
-    headers["cookie"] = cookie
+    session_token = extract_session_token(cookie)
+    headers["cookie"] = f"__Secure-next-auth.session-token={session_token}"
+
 
     email = "unknown"
     days = "-"
@@ -658,6 +670,11 @@ def checkin_account(
 
 # ==================== 主流程 ====================
 def main() -> int:
+    # 读取自定义浏览器User‑Agent，用于绕过平台校验；未配置则使用脚本默认UA
+    custom_ua = os.getenv("GLADOS_USER_AGENT", "").strip()
+    if custom_ua:
+        HEADERS_BASE["user-agent"] = custom_ua
+        logger.info("已使用自定义GLADOS_USER_AGENT")
     # H2：支持 ||| 或换行(\n)或 & 分隔多账号 Cookie；推荐使用 ||| 避免与 Cookie 值冲突
     raw = os.getenv("COOKIES", "")
     cookies = [c.strip() for c in re.split(r"\|\|\||[&\n]", raw) if c.strip()]
