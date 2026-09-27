@@ -26,17 +26,17 @@ logging.basicConfig(
 logger = logging.getLogger("GLaDOS")
 
 # ==================== 配置 ====================
-CHECKIN_URL = "https://glados.cloud/api/user/checkin"
-STATUS_URL = "https://glados.cloud/api/user/status"
-POINTS_URL = "https://glados.cloud/api/user/points"
-EXCHANGE_URL = "https://glados.cloud/api/user/exchange"
-HEADERS_BASE = {
-    "origin": "https://glados.cloud",
-    "referer": "https://glados.cloud/console/checkin",
-    "user-agent": (
+CHECKIN_URL = "https://glados.cloud/api/user/checkin""https://glados.cloud/api/user/checkin"
+STATUS_URL = "https://glados.cloud/api/user/status""https://glados.cloud/api/user/status"
+POINTS_URL = "https://glados.cloud/api/user/points""https://glados.cloud/api/user/points"
+EXCHANGE_URL = "https://glados.cloud/api/user/exchange""https://glados.cloud/api/user/exchange"
+HEADERS_BASE = {{
+    "origin": "https://glados.cloud","origin": "https://glados.cloud",
+    "referer": "https://glados.cloud/console/checkin","referer": "https://glados.cloud/console/checkin",
+    "user-agent": ("user-agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/152.0.0.0 Safari/537.36"
+        "Chrome/154.0.0.0 Safari/537.36"
     ),
     # 注意：使用 requests 的 json= 参数时会自动设置 Content-Type: application/json，
     # 此处无需（也不应）手动设置 content-type，否则与 requests 默认行为重复。
@@ -87,7 +87,7 @@ def require_json(resp: requests.Response) -> Dict[str, Any]:
         return resp.json()
     except ValueError:
         snippet = (resp.text or "<空响应>")[:200]
-        logger.debug(
+GLaDOS 自动签到脚本debug(
             "非 JSON 响应 (status=%s, content-type=%s): %s",
             resp.status_code,
             resp.headers.get("Content-Type"),
